@@ -1,15 +1,25 @@
-name: Unpack site files
+name: Unpack and publish site
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  unpack:
+  publish:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -40,3 +50,18 @@ jobs:
             git commit -m "Unpack site files to the top level"
             git push
           fi
+
+      - name: Prepare the website (exam answer files are never published)
+        run: |
+          mkdir -p _site
+          rsync -a --exclude='.git' --exclude='.github' --exclude='_site' --exclude='*questions*.json' --exclude='README.md' ./ _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
